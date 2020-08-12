@@ -1,5 +1,5 @@
 import uvicorn
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jwt import PyJWTError
 from sqlalchemy.orm import Session
 from fastapi import Depends, FastAPI, HTTPException
@@ -32,7 +32,7 @@ def get_db():
         db.close()
 
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/authenticate")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="authenticate")
 
 
 async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
@@ -64,11 +64,13 @@ def create_user(user: UserCreate, db: Session = Depends(get_db)):
 
 
 @app.post("/authenticate", response_model=Token)
-def authenticate_user(user: schemas.UserAuthenticate, db: Session = Depends(get_db)):
-    db_user = crud.get_user_by_username(db, username=user.username)
+# def authenticate_user(user: schemas.UserAuthenticate, db: Session = Depends(get_db)):
+def authenticate_user(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+    db_user = crud.get_user_by_username(db, username=form_data.username)
     if db_user is None:
-        raise HTTPException(status_code=400, detail="Username not existed")
+        raise HTTPException(status_code=400, detail="No such Username")
     else:
+        user = schemas.UserAuthenticate(username=form_data.username, password=form_data.password)
         is_password_correct = crud.check_username_password(db, user)
         if is_password_correct is False:
             raise HTTPException(status_code=400, detail="Password is not correct")
@@ -77,7 +79,7 @@ def authenticate_user(user: schemas.UserAuthenticate, db: Session = Depends(get_
             access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
             from app_utils import create_access_token
             access_token = create_access_token(
-                data={"sub": user.username}, expires_delta=access_token_expires)
+                data={"sub": form_data.username}, expires_delta=access_token_expires)
             return {"access_token": access_token, "token_type": "Bearer"}
 
 
