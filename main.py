@@ -1,9 +1,11 @@
+import graphene
 import uvicorn
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jwt import PyJWTError
 from sqlalchemy.orm import Session
 from fastapi import Depends, FastAPI, HTTPException
 from starlette import status
+from starlette.graphql import GraphQLApp
 
 import crud
 import models
@@ -19,6 +21,15 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
 app = FastAPI()
 
+
+class Query(graphene.ObjectType):
+    hello = graphene.String(name=graphene.String(default_value="stranger"))
+
+    def resolve_hello(self, info, name):
+        return "Hello " + name
+
+
+app.add_route("/", GraphQLApp(schema=graphene.Schema(query=Query)))
 
 # Dependency
 
